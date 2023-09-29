@@ -1,1 +1,1 @@
-use plex::{parser};
+use plex::parser;
