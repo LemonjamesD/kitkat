@@ -1,14 +1,18 @@
 mod parser;
 mod lexer;
 mod ast;
+mod compiler;
 
 use lexer::Lexer;
+use parser::parse;
 
 fn main() {
-    let mut s = r#"
-pub eager noerror impure fn main :: u8 = {
+    let s = r#"
+pub eager noerror impure main :: u8 = {
     return 0;
-}
+};
 "#;
-    let lexer = Lexer::new(&s).inspect(|tok| println!("tok: {:?}", tok)).map(|i| i).collect::<Vec<_>>();
+    let lexer = Lexer::new(&s).inspect(|tok| println!("tok: {:?}", tok));
+    let program = parse(lexer).unwrap().stmt;
+    println!("{program:#?}");
 }

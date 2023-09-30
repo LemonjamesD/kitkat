@@ -30,6 +30,8 @@ pub enum Token {
     // Errority
     NoError,
 
+    Return,
+
     // Built-in Types,
     EmptyTuple,
     Byte,
@@ -70,13 +72,15 @@ lexer! {
 
     r"//.*" => Token::Comment,
 
-    // Literals
-    "[0-9]+" => Token::Integer(tok.parse().unwrap()),
-    r#""[^"]*""# => Token::String(tok[1..tok.len() - 1].to_owned()),
+    r"return" => Token::Return,
 
     // Built in types
     r"\(\)" => Token::EmptyTuple,
     r"u8" => Token::Byte,
+    
+    // Literals
+    "[0-9]+" => Token::Integer(tok.parse().unwrap()),
+    r#""[^"]*""# => Token::String(tok[1..tok.len() - 1].to_owned()),
 
     // Keywords
     r"pub" => Token::Public,
@@ -133,6 +137,7 @@ lexer! {
     r"." => panic!("Unexpected character: {}", tok),
 }
 
+#[derive(Debug)]
 pub struct Lexer<'a> {
     original: &'a str,
     remaining: &'a str,

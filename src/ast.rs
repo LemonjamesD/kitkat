@@ -13,21 +13,34 @@ pub struct Expr {
 
 #[derive(Debug)]
 pub enum Expr_ {
-    Define {
+    Function {
         attrs: Vec<Expr>,
-        name: Box<Expr>,
-        type_signature: Expr,
+        name: String,
+        type_signature: Vec<Expr>,
+        body: Expr,
     },
-    Declare {
-        name: Box<Expr>,
-    },
+
+    // Attributes
+    Public,
+    Private,
+    Eager,
+    Lazy,
+    Unsafe,
+    Impure,
+    Pure,
+    NoError,
+ 
     EmptyTuple,
     Byte,
-    TypeSig(Vec<Expr>),
+    Type(String),
+
+    Var(String),
+    Number(i32),
+
     Add(Expr, Expr),
     Sub(Expr, Expr),
     Mul(Expr, Expr),
     Div(Expr, Expr),
-    Return(Vec<Expr>),
+    Return(Expr),
     Block(Vec<Expr>),
 }

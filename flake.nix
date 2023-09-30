@@ -32,6 +32,7 @@
         glibc_multi
         openssl
         rust-analyzer-nightly
+        llvmPackages_latest.llvm
       ];
       src = ./.;
       copySources = [
@@ -77,6 +78,7 @@
             inherit (pkgs.pkgsCross.aarch64-multiplatform.stdenv) cc;
           in
           "${cc}/bin/${cc.targetPrefix}cc";
+        LLVM_SYS_160_PREFIX = "${pkgs.llvmPackages_latest.llvm.dev}";
       };
   });
 }
