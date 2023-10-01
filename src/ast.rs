@@ -1,17 +1,17 @@
 use crate::lexer::Span;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Program {
     pub stmt: Vec<Expr>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expr {
     pub span: Span,
     pub node: Box<Expr_>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr_ {
     Function {
         attrs: Vec<Expr>,
