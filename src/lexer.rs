@@ -119,9 +119,9 @@ lexer! {
     r"!=" => Token::NotEquality,
     r"=" => Token::Equal,
     r"\*" => Token::Star,
-    r"/" => Token::Slash,
+    r"\/" => Token::Slash,
     r"\+" => Token::Plus,
-    r"-" => Token::Minus,
+    r"\-" => Token::Minus,
 
     r"\(" => Token::LParen,
     r"\)" => Token::RParen,

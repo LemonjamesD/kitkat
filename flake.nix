@@ -33,6 +33,9 @@
         openssl
         rust-analyzer-nightly
         llvmPackages_latest.llvm
+        libffi
+        libxml2
+        clang
       ];
       src = ./.;
       copySources = [
@@ -69,7 +72,7 @@
 
       devShells.${system}.default = pkgs.mkShell {
         inherit src copySources buildInputs;
-        nativeBuildInputs = with pkgs; [ toolchain ];
+        nativeBuildInputs = with pkgs; [ toolchain pkg-config ];
 
         LD_LIBRARY_PATH = nixpkgs.lib.makeLibraryPath buildInputs;
         CARGO_BUILD_TARGET = target;
