@@ -16,7 +16,7 @@ pub enum Expr_ {
     Function {
         attrs: Vec<Expr>,
         name: String,
-        type_signature: Vec<Expr>,
+        type_signature: Vec<(Option<String>, Expr)>,
         body: Expr,
     },
 
@@ -34,6 +34,7 @@ pub enum Expr_ {
     Byte,
     Type(String),
 
+    FunctionCalls(String, Vec<Expr>)
     Var(String),
     Number(i32),
 

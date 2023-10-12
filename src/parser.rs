@@ -40,11 +40,18 @@ parser! {
         }
     }
 
-    type_sig: Vec<Expr> {
+    type_sig: Vec<(Option<std::string::String>, Expr)> {
         => vec![],
-        _type[_type] => vec![_type],
+        #[overriding]
+        Ident(string) Colon _type[_type] => vec![(Some(string), _type)],
+        _type[_type] => vec![(None, _type)],
+        #[overriding]
+        Ident(string) Colon type_sig[mut sig] RArrow _type[_type] => {
+            sig.push((Some(string), _type));
+            sig
+        }
         type_sig[mut sig] RArrow _type[_type] => {
-            sig.push(_type);
+            sig.push((None, _type));
             sig
         }
     }

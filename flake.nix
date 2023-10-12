@@ -31,7 +31,6 @@
         pkgsCross.mingwW64.buildPackages.gcc
         glibc_multi
         openssl
-        rust-analyzer-nightly
         llvmPackages_latest.llvm
         libffi
         libxml2
