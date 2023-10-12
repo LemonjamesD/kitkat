@@ -34,7 +34,7 @@ pub enum Expr_ {
     Byte,
     Type(String),
 
-    FunctionCalls(String, Vec<Expr>)
+    FunctionCall(String, Vec<Expr>),
     Var(String),
     Number(i32),
 

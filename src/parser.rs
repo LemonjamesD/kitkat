@@ -119,6 +119,7 @@ parser! {
     }
 
     atom: Expr {
+        #[overriding]
         Ident(i) => Expr {
             span: span!(),
             node: Box::new(Expr_::Var(i))
@@ -127,7 +128,20 @@ parser! {
             span: span!(),
             node: Box::new(Expr_::Number(i))
         },
+        LBracket Ident(i) RBracket LParen function_call[a] RParen => Expr {
+            span: span!(),
+            node: Box::new(Expr_::FunctionCall(i, a))
+        },
+        #[overriding]
         LParen term[a] RParen => a
+    }
+
+    function_call: Vec<Expr> {
+        => vec![],
+        term[arg] function_call[mut args] => {
+            args.push(arg);
+            args
+        }
     }
 
     function_attrs: Vec<Expr> {
