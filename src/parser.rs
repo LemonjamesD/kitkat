@@ -114,6 +114,10 @@ parser! {
             span: span!(),
             node: Box::new(Expr_::FunctionCall(i, vec![]))
         },
+        LBracket Free RBracket LParen function_call[a] RParen Semi => Expr {
+            span: span!(),
+            node: Box::new(Expr_::Free(a))
+        },
         #[overriding]
         term[a] => a,
     }

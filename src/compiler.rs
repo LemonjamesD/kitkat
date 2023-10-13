@@ -173,6 +173,18 @@ impl CodeGen {
                         Expr_::EmptyTuple => builder.build_return(None).unwrap(),
                         _ => builder.build_return(Some(&resolve_value(expr, context, &module, builder, function, params.clone(), variables.clone()))).unwrap(),
                     };
+                },
+                Free(exprs) => {
+                    for expr in exprs {
+                        match *expr.node {
+                            Var(name) => {
+                                let (_var_type, var_ptr) = variables.get(&name).unwrap();
+                                builder.build_free(*var_ptr);
+                                variables.remove(&name);
+                            }
+                            _ => panic!("Can't free a non pointer value"),
+                        };
+                    }
                 }
                 _ => todo!(),
             }

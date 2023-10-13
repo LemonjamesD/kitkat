@@ -25,6 +25,8 @@ pub enum Expr_ {
         type_signature: Vec<(Option<String>, Expr)>
     },
 
+    Free(Vec<Expr>),
+
     // Attributes
     Public,
     Private,

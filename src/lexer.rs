@@ -37,6 +37,7 @@ pub enum Token {
     NoError,
 
     Return,
+    Free,
 
     // Built-in Types,
     EmptyTuple,
@@ -82,6 +83,7 @@ lexer! {
     r"//[^\n]*" => Token::Comment,
 
     r"return" => Token::Return,
+    r"free" => Token::Free,
 
     // Built in types
     r"\(\)" => Token::EmptyTuple,

@@ -15,23 +15,27 @@ extern print_fizz :: ();
 extern print_buzz :: ();
     
 fizz_buzz :: start:u8 -> to:u8 -> () = {
-    for (let i: u8 = start; to > i; i = i + 1;) {
-        if ((i % 5) == 0) {
-            [print_buzzz]();
-        }
+    for (let i: u8 = start; (to + 1) > i; i = i + 1;) {
+        let changed: u8 = 0;
         if ((i % 3) == 0) {
+            [print_fizz]();
+            changed = 1;
+        }
+        if ((i % 5) == 0) {
             [print_buzz]();
+            changed = 1;
         }
         if (changed == 0) {
             [print_int](i);
         }
         [new_line]();
+        // [free](changed);
     }
     return ();
 };
 
 main :: u8 = {
-    [fizz_buzz](0 10);
+    [fizz_buzz](1 100);
     return 0;
 };
 "#;
