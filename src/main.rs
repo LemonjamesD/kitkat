@@ -17,13 +17,13 @@ extern print_buzz :: ();
 fizz_buzz :: start:u8 -> to:u8 -> () = {
     for (let i: u8 = start; to > i; i = i + 1;) {
         if ((i % 5) == 0) {
-            [print_fizz]();
-        } else {
-            if ((i % 3) == 0) {
-                [print_buzz]();
-            } else {
-                [print_int](i);
-            }
+            [print_buzzz]();
+        }
+        if ((i % 3) == 0) {
+            [print_buzz]();
+        }
+        if (changed == 0) {
+            [print_int](i);
         }
         [new_line]();
     }

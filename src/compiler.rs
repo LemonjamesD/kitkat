@@ -55,7 +55,7 @@ impl CodeGen {
                 } => {
                     let mut type_sig = type_signature.clone();
                     type_sig.reverse();
-                    let (types, return_type) = get_type(type_sig, context);
+                    let (mut types, return_type) = get_type(type_sig, context);
                     let fn_type = match return_type {
                         AnyTypeEnum::IntType(int) => int.fn_type(&types[0..types.len()].iter().map(|x| (x.1).into()).collect::<Vec<_>>(), false),
                         AnyTypeEnum::VoidType(void) => void.fn_type(&types[0..types.len()].iter().map(|x| (x.1).into()).collect::<Vec<_>>(), false),
@@ -83,7 +83,9 @@ impl CodeGen {
                     name,
                     type_signature
                 } => {
-                    let (types, return_type) = get_type(type_signature, context);
+                    let mut type_sig = type_signature.clone();
+                    type_sig.reverse();
+                    let (types, return_type) = get_type(type_sig, context);
                     let fn_type = match return_type {
                         AnyTypeEnum::IntType(int) => int.fn_type(&types[0..types.len()].iter().map(|x| (x.1).into()).collect::<Vec<_>>(), false),
                         AnyTypeEnum::VoidType(void) => void.fn_type(&types[0..types.len()].iter().map(|x| (x.1).into()).collect::<Vec<_>>(), false),
@@ -93,30 +95,53 @@ impl CodeGen {
                 },
                 If(cond, block) => {
                     let then_block = context.append_basic_block(function.unwrap(), "then");
+                    let escape_block = context.append_basic_block(function.unwrap(), "escape_if");
+                    builder.build_conditional_branch(
+                        resolve_int_value(cond, context, &module, builder, function, params.clone(), variables.clone()),
+                        then_block,
+                        escape_block,
+                    ).unwrap();
+
+                    builder.position_at_end(then_block);
+                    module = self._compile(block, context, module, builder, function, params.clone(), variables);
+                    builder.build_unconditional_branch(escape_block).unwrap();
+                    builder.position_at_end(escape_block);
+                },
+                IfElse(cond, then, else_b) => {
+                    let then_block = context.append_basic_block(function.unwrap(), "then");
                     let else_block = context.append_basic_block(function.unwrap(), "else");
+                    let escape_block = context.append_basic_block(function.unwrap(), "escape_if");
                     builder.build_conditional_branch(
                         resolve_int_value(cond, context, &module, builder, function, params.clone(), variables.clone()),
                         then_block,
                         else_block,
                     ).unwrap();
 
-                    module = self._compile(block, context, module, builder, function, params.clone(), variables);
+                    builder.position_at_end(then_block);
+                    module = self._compile(then, context, module, builder, function, params.clone(), variables);
+                    builder.build_unconditional_branch(escape_block).unwrap();
                     builder.position_at_end(else_block);
+                    
+                    module = self._compile(else_b, context, module, builder, function, params.clone(), variables);
+                    builder.build_unconditional_branch(escape_block).unwrap();
+                    builder.position_at_end(escape_block);
                 },
                 For { init, cond, end, body } => {
                     let body_block = context.append_basic_block(function.unwrap(), "body_for");
                     let escape_block = context.append_basic_block(function.unwrap(), "escape_for");
 
                     module = self._compile(vec![init], context, module, builder, function, params.clone(), variables);
-                    builder.build_unconditional_branch(body_block);
+                    builder.build_unconditional_branch(body_block).unwrap();
+                    
                     builder.position_at_end(body_block);
                     module = self._compile(body, context, module, builder, function, params.clone(), variables);
+                    
                     module = self._compile(vec![end], context, module, builder, function, params.clone(), variables);
                     builder.build_conditional_branch(
                         resolve_int_value(cond, context, &module, builder, function, params.clone(), variables.clone()),
                         body_block,
                         escape_block
-                    );
+                    ).unwrap();
                     builder.position_at_end(escape_block);
 
                 },
@@ -133,13 +158,15 @@ impl CodeGen {
                     let (var_type, ptr) = variables.get(&name).unwrap();
 
                     let value = resolve_value(value, context, &module, builder, function, params.clone(), variables.clone());
-                    builder.build_store(*ptr, value);
+                    builder.build_store(*ptr, value).unwrap();
                 },
                 FunctionCall(name, args) => {
-                    let args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, &module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
+                    let mut args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, &module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
+                    args.reverse();
+                    println!("ARGS_LEN Top: {name} {}", args.len());
                     let function = module.get_function(&name).unwrap();
             
-                    builder.build_call(function, &args[..], &name).unwrap();
+                    builder.build_call(function, args.as_slice(), &name).unwrap().try_as_basic_value();
                 },
                 Return(expr) => {
                     match *expr.node {
@@ -174,7 +201,9 @@ fn resolve_value<'ctx>(
             }
         },
         FunctionCall(name, args) => {
-            let args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
+            let mut args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
+            args.reverse();
+            println!("ARGS_LEN MIddle: {}", args.len());
             let function = module.get_function(&name).unwrap();
             
             builder.build_call(function, &args[..], &name).unwrap().try_as_basic_value().unwrap_left()
@@ -191,6 +220,9 @@ fn resolve_value<'ctx>(
         Div(_, _) => BasicValueEnum::IntValue(
             resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
+        Mod(_, _) => BasicValueEnum::IntValue(
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
+        ),
         Eq(_, _) => BasicValueEnum::IntValue(
             resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
@@ -201,6 +233,12 @@ fn resolve_value<'ctx>(
             resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
         Lt(_, _) => BasicValueEnum::IntValue(
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
+        ),
+        And(_, _) => BasicValueEnum::IntValue(
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
+        ),
+        Or(_, _) => BasicValueEnum::IntValue(
             resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
         _ => todo!()
@@ -238,6 +276,11 @@ fn resolve_int_value<'ctx>(
             resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "divided_value"
         ).unwrap(),
+        Mod(x, y) => builder.build_int_unsigned_rem::<IntValue>(
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
+            "moduloed_value"
+        ).unwrap(),
         Eq(x, y) => builder.build_int_compare::<IntValue>(
                 IntPredicate::EQ,
             resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
@@ -262,6 +305,16 @@ fn resolve_int_value<'ctx>(
             resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "lt_value"
         ).unwrap(),
+        And(x, y) => builder.build_and::<IntValue>(
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
+            "and_value"
+        ).unwrap(),
+        Or(x, y) => builder.build_or::<IntValue>(
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
+            "or_value"
+        ).unwrap(),
         Var(name) => {
             if let Some(idx) = params.get(&name) {
                 match function.unwrap().get_nth_param(*idx).unwrap() {
@@ -277,7 +330,9 @@ fn resolve_int_value<'ctx>(
             }
         },
         FunctionCall(name, args) => {
-            let args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
+            let mut args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
+            args.reverse();
+            println!("ARGS_LEN Bottom: {}", args.len());
             let function = module.get_function(&name).unwrap();
             
             match builder.build_call(function, &args[..], &name).unwrap().try_as_basic_value().unwrap_left() {

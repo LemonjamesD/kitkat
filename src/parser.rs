@@ -105,6 +105,7 @@ parser! {
             span: span!(),
             node: Box::new(Expr_::VarReassign(name, a)),
         },
+        #[overriding]
         LBracket Ident(i) RBracket LParen function_call[a] RParen Semi => Expr {
             span: span!(),
             node: Box::new(Expr_::FunctionCall(i, a))

@@ -79,7 +79,7 @@ lexer! {
 
     r"[ \t\r\n]" => Token::Whitespace,
 
-    r"//.*" => Token::Comment,
+    r"//[^\n]*" => Token::Comment,
 
     r"return" => Token::Return,
 
