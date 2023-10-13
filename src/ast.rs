@@ -71,6 +71,7 @@ pub enum Expr_ {
     Sub(Expr, Expr),
     Mul(Expr, Expr),
     Div(Expr, Expr),
+    Mod(Expr, Expr),
     Return(Expr),
     Block(Vec<Expr>),
 }

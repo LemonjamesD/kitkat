@@ -50,17 +50,14 @@ parser! {
 
     type_sig: Vec<(Option<std::string::String>, Expr)> {
         => vec![],
-        #[overriding]
-        Ident(string) Colon _type[_type] => vec![(Some(string), _type)],
         _type[_type] => vec![(None, _type)],
         #[overriding]
-        Ident(string) Colon type_sig[mut sig] RArrow _type[_type] => {
+        Ident(string) Colon _type[_type] RArrow type_sig[mut sig] => {
             sig.push((Some(string), _type));
             sig
         }
-        type_sig[mut sig] RArrow _type[_type] => {
-            sig.push((None, _type));
-            sig
+        _type[_type] => {
+            vec![(None, _type)]
         }
     }
 
@@ -112,11 +109,27 @@ parser! {
             span: span!(),
             node: Box::new(Expr_::FunctionCall(i, a))
         },
+        LBracket Ident(i) RBracket EmptyTuple Semi => Expr {
+            span: span!(),
+            node: Box::new(Expr_::FunctionCall(i, vec![]))
+        },
         #[overriding]
         term[a] => a,
     }
 
     term: Expr {
+        term[lhs] Ampersand Ampersand fact[rhs] => Expr {
+            span: span!(),
+            node: Box::new(Expr_::And(lhs, rhs))
+        },
+        term[lhs] Bar Bar fact[rhs] => Expr {
+            span: span!(),
+            node: Box::new(Expr_::Or(lhs, rhs))
+        },
+        term[lhs] Percent fact[rhs] => Expr {
+            span: span!(),
+            node: Box::new(Expr_::Mod(lhs, rhs))
+        },
         term[lhs] Equality fact[rhs] => Expr {
             span: span!(),
             node: Box::new(Expr_::Eq(lhs, rhs))
@@ -159,6 +172,10 @@ parser! {
         Ident(i) => Expr {
             span: span!(),
             node: Box::new(Expr_::Var(i))
+        },
+        EmptyTuple => Expr {
+            span: span!(),
+            node: Box::new(Expr_::EmptyTuple)
         },
         Integer(i) => Expr {
             span: span!(),

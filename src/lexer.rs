@@ -58,6 +58,9 @@ pub enum Token {
     Slash,
     Plus,
     Minus,
+    Percent,
+    Bar,
+    Ampersand,
     
     LParen,
     RParen,
@@ -134,6 +137,9 @@ lexer! {
     r"\/" => Token::Slash,
     r"\+" => Token::Plus,
     r"\-" => Token::Minus,
+    r"%" => Token::Percent,
+    r"\|" => Token::Bar,
+    r"\&" => Token::Ampersand,
 
     r"\(" => Token::LParen,
     r"\)" => Token::RParen,

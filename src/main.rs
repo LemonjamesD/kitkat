@@ -10,21 +10,32 @@ use compiler::CodeGen;
 fn main() {
     let s = r#"
 extern print_int :: num:u8 -> ();
+extern new_line :: ();
+extern print_fizz :: ();
+extern print_buzz :: ();
     
-cool :: x:u8 -> u8 = {
-    if (x == 10) {
-        return 10 + x;
+fizz_buzz :: start:u8 -> to:u8 -> () = {
+    for (let i: u8 = start; to > i; i = i + 1;) {
+        if ((i % 5) == 0) {
+            [print_fizz]();
+        } else {
+            if ((i % 3) == 0) {
+                [print_buzz]();
+            } else {
+                [print_int](i);
+            }
+        }
+        [new_line]();
     }
-    return x;
+    return ();
 };
 
 main :: u8 = {
-    for (let i: u8 = 1; 10 > i; i = i + 1;) {
-        [print_int](i);
-    }
-    return i;
+    [fizz_buzz](0 10);
+    return 0;
 };
 "#;
+    let s2 = "::: = { ::: = {:::} };";
     let lexer = Lexer::new(&s).inspect(|tok| println!("tok: {:?}", tok));
     let program = parse(lexer).unwrap();
     println!("{:#?}", program.stmt);

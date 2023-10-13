@@ -53,7 +53,9 @@ impl CodeGen {
                     type_signature,
                     body,
                 } => {
-                    let (types, return_type) = get_type(type_signature, context);
+                    let mut type_sig = type_signature.clone();
+                    type_sig.reverse();
+                    let (types, return_type) = get_type(type_sig, context);
                     let fn_type = match return_type {
                         AnyTypeEnum::IntType(int) => int.fn_type(&types[0..types.len()].iter().map(|x| (x.1).into()).collect::<Vec<_>>(), false),
                         AnyTypeEnum::VoidType(void) => void.fn_type(&types[0..types.len()].iter().map(|x| (x.1).into()).collect::<Vec<_>>(), false),
@@ -140,7 +142,10 @@ impl CodeGen {
                     builder.build_call(function, &args[..], &name).unwrap();
                 },
                 Return(expr) => {
-                    builder.build_return(Some(&resolve_value(expr, context, &module, builder, function, params.clone(), variables.clone()))).unwrap();
+                    match *expr.node {
+                        Expr_::EmptyTuple => builder.build_return(None).unwrap(),
+                        _ => builder.build_return(Some(&resolve_value(expr, context, &module, builder, function, params.clone(), variables.clone()))).unwrap(),
+                    };
                 }
                 _ => todo!(),
             }
