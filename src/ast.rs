@@ -46,6 +46,12 @@ pub enum Expr_ {
 
     If(Expr, Vec<Expr>),
     IfElse(Expr, Vec<Expr>, Vec<Expr>),
+    For {
+        init: Expr,
+        cond: Expr,
+        end: Expr,
+        body: Vec<Expr>,
+    },
 
     Eq(Expr, Expr),
     NEq(Expr, Expr),

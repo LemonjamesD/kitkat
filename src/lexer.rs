@@ -124,9 +124,9 @@ lexer! {
 
     // Operators
     r"==" => Token::Equality,
-    r">=" => Token::LtEqual,
-    r">" => Token::Lt,
-    r"<=" => Token::GtEqual,
+    r"<=" => Token::LtEqual,
+    r"<" => Token::Lt,
+    r">=" => Token::GtEqual,
     r">" => Token::Gt,
     r"!=" => Token::NotEquality,
     r"=" => Token::Equal,

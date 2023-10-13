@@ -28,7 +28,7 @@ impl CodeGen {
         let module = context.create_module("main");
         let builder = context.create_builder();
         
-        let new_module = self._compile(self.program.stmt.clone(), &context, module, &builder, None, HashMap::new(), HashMap::new());
+        let new_module = self._compile(self.program.stmt.clone(), &context, module, &builder, None, HashMap::new(), &mut HashMap::new());
         let mut path = std::path::Path::new("module.bc");
         let written = new_module.write_bitcode_to_path(&path);
         Ok(self)
@@ -42,7 +42,7 @@ impl CodeGen {
         builder: &Builder<'ctx>,
         function: Option<FunctionValue<'ctx>>,
         params: HashMap<String, u32>,
-        mut variables: HashMap<String, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>
+        variables: &mut HashMap<String, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>
     ) -> Module<'ctx> {        
         for expr in exprs {
             let expr_ = expr.node;
@@ -70,10 +70,11 @@ impl CodeGen {
                         hash.insert(arg_name, i as u32);
                     }
 
+                    let mut vars = HashMap::new();
                     module = self._compile(match *body.node {
                         Block(exprs_prime) => exprs_prime,
                         _ => todo!()
-                    }, context, module, &builder, Some(function), hash, HashMap::new());
+                    }, context, module, &builder, Some(function), hash, &mut vars);
                 },
                 If(cond, block) => {
                     let then_block = context.append_basic_block(function.unwrap(), "then");
@@ -84,8 +85,28 @@ impl CodeGen {
                         else_block,
                     ).unwrap();
 
-                    module = self._compile(block, context, module, builder, function, params.clone(), variables.clone());
+                    module = self._compile(block, context, module, builder, function, params.clone(), variables);
                     builder.position_at_end(else_block);
+                },
+                For { init, cond, end, body } => {
+                    let init_block = context.append_basic_block(function.unwrap(), "init_for");
+                    let end_block = context.append_basic_block(function.unwrap(), "end_for");
+                    let escape_block = context.append_basic_block(function.unwrap(), "escape_for");
+
+                    builder.build_unconditional_branch(init_block);
+                    builder.position_at_end(init_block);
+                    module = self._compile(vec![init], context, module, builder, function, params.clone(), variables);
+                    builder.build_unconditional_branch(end_block);
+                    builder.position_at_end(end_block);
+                    module = self._compile(body, context, module, builder, function, params.clone(), variables);
+                    module = self._compile(vec![end], context, module, builder, function, params.clone(), variables);
+                    builder.build_conditional_branch(
+                        resolve_int_value(cond, context, &module, builder, function, params.clone(), variables.clone()),
+                        end_block,
+                        escape_block
+                    );
+                    builder.position_at_end(escape_block);
+
                 },
                 VarAssign { name, var_type, value } => {
                     let var_type = get_type_single(var_type, context);
@@ -155,6 +176,12 @@ fn resolve_value<'ctx>(
         NEq(_, _) => BasicValueEnum::IntValue(
             resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
+        Gt(_, _) => BasicValueEnum::IntValue(
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
+        ),
+        Lt(_, _) => BasicValueEnum::IntValue(
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
+        ),
         _ => todo!()
     }
 }
@@ -202,6 +229,18 @@ fn resolve_int_value<'ctx>(
             resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "not_equaled_value"
         ).unwrap(),
+        Gt(x, y) => builder.build_int_compare::<IntValue>(
+                IntPredicate::UGT,
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
+            "gt_value"
+        ).unwrap(),
+        Lt(x, y) => builder.build_int_compare::<IntValue>(
+                IntPredicate::ULT,
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
+            "lt_value"
+        ).unwrap(),
         Var(name) => {
             if let Some(idx) = params.get(&name) {
                 match function.unwrap().get_nth_param(*idx).unwrap() {
@@ -209,7 +248,11 @@ fn resolve_int_value<'ctx>(
                     _ => panic!("You can't do an operation on an {{integer}} to a non int")
                 }
             } else {
-                todo!()
+                let (var_type, var_ptr) = variables.get(&name).unwrap();
+                match builder.build_load(*var_type, *var_ptr, "loaded_value").unwrap() {
+                    BasicValueEnum::IntValue(int) => int,
+                    _ => panic!("You can't do an operation on an {{integer}} to a non int")
+                }
             }
         },
         FunctionCall(name, args) => {

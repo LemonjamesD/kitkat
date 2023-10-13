@@ -113,6 +113,10 @@ parser! {
             span: span!(),
             node: Box::new(Expr_::NEq(lhs, rhs))
         },
+        term[lhs] Gt fact[rhs] => Expr {
+            span: span!(),
+            node: Box::new(Expr_::Gt(lhs, rhs))
+        },
         term[lhs] Plus fact[rhs] => Expr {
             span: span!(),
             node: Box::new(Expr_::Add(lhs, rhs))
@@ -157,9 +161,13 @@ parser! {
             node: Box::new(Expr_::If(a, body))
         },
         #[overriding]
-        If LParen term[a] RParen body[body1] Else body[body2] =>  Expr {
+        If LParen term[a] RParen body[body1] Else body[body2] => Expr {
             span: span!(),
             node: Box::new(Expr_::IfElse(a, body1, body2))
+        },
+        For LParen assign[init] term[cond] Semi assign[end] RParen body[body] => Expr {
+            span: span!(),
+            node: Box::new(Expr_::For { init, cond, end, body })
         },
         #[overriding]
         LParen term[a] RParen => a

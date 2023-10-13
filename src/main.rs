@@ -18,7 +18,9 @@ cool :: x:u8 -> u8 = {
 
 main :: u8 = {
     let x: u8 = 10;
-    x = 30;
+    for (let i: u8 = 1; 10 > i; i = i + 1;) {
+        x = x + 1;
+    }
     return [cool](x);
 };
 "#;
