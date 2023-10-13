@@ -9,8 +9,10 @@ pub enum Token {
     Ident(String),
 
     // Control flow
+    Let,
     If,
     Else,
+    For,
 
     // Keywords
     Public,
@@ -89,6 +91,8 @@ lexer! {
     // Control Flow
     r"if" => Token::If,
     r"else" => Token::Else,
+    r"for" => Token::For,
+    r"let" => Token::Let,
 
     // Keywords
     r"pub" => Token::Public,

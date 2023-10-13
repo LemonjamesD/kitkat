@@ -35,6 +35,12 @@ pub enum Expr_ {
     Type(String),
 
     FunctionCall(String, Vec<Expr>),
+    VarAssign {
+        name: String,
+        var_type: Expr,
+        value: Expr,
+    },
+    VarReassign(String, Expr),
     Var(String),
     Number(i32),
 

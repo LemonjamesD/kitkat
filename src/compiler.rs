@@ -28,7 +28,7 @@ impl CodeGen {
         let module = context.create_module("main");
         let builder = context.create_builder();
         
-        let new_module = self._compile(self.program.stmt.clone(), &context, module, &builder, None, HashMap::new());
+        let new_module = self._compile(self.program.stmt.clone(), &context, module, &builder, None, HashMap::new(), HashMap::new());
         let mut path = std::path::Path::new("module.bc");
         let written = new_module.write_bitcode_to_path(&path);
         Ok(self)
@@ -41,7 +41,8 @@ impl CodeGen {
         mut module: Module<'ctx>,
         builder: &Builder<'ctx>,
         function: Option<FunctionValue<'ctx>>,
-        params: HashMap<String, u32>
+        params: HashMap<String, u32>,
+        mut variables: HashMap<String, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>
     ) -> Module<'ctx> {        
         for expr in exprs {
             let expr_ = expr.node;
@@ -72,22 +73,37 @@ impl CodeGen {
                     module = self._compile(match *body.node {
                         Block(exprs_prime) => exprs_prime,
                         _ => todo!()
-                    }, context, module, &builder, Some(function), hash);
+                    }, context, module, &builder, Some(function), hash, HashMap::new());
                 },
                 If(cond, block) => {
                     let then_block = context.append_basic_block(function.unwrap(), "then");
                     let else_block = context.append_basic_block(function.unwrap(), "else");
                     builder.build_conditional_branch(
-                        resolve_int_value(cond, context, &module, builder, function, params.clone()),
+                        resolve_int_value(cond, context, &module, builder, function, params.clone(), variables.clone()),
                         then_block,
                         else_block,
                     ).unwrap();
 
-                    module = self._compile(block, context, module, builder, function, params.clone());
+                    module = self._compile(block, context, module, builder, function, params.clone(), variables.clone());
                     builder.position_at_end(else_block);
+                },
+                VarAssign { name, var_type, value } => {
+                    let var_type = get_type_single(var_type, context);
+                    let ptr = builder.build_alloca(var_type, &name).unwrap();
+        
+                    variables.insert(name.clone(), (var_type, ptr));
+
+                    let value = resolve_value(value, context, &module, builder, function, params.clone(), variables.clone());
+                    builder.build_store(ptr, value).unwrap();
+                },
+                VarReassign(name, value) => {
+                    let (var_type, ptr) = variables.get(&name).unwrap();
+
+                    let value = resolve_value(value, context, &module, builder, function, params.clone(), variables.clone());
+                    builder.build_store(*ptr, value);
                 }
                 Return(expr) => {
-                    builder.build_return(Some(&resolve_value(expr, context, &module, builder, function, params.clone()))).unwrap();
+                    builder.build_return(Some(&resolve_value(expr, context, &module, builder, function, params.clone(), variables.clone()))).unwrap();
                 }
                 _ => todo!(),
             }
@@ -102,40 +118,42 @@ fn resolve_value<'ctx>(
     module: &Module<'ctx>,
     builder: &Builder<'ctx>,
     function: Option<FunctionValue<'ctx>>,
-    params: HashMap<String, u32>
+    params: HashMap<String, u32>,
+    variables: HashMap<String, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>
  ) -> BasicValueEnum<'ctx> {
     match *expr.node {
-        Number(_) => BasicValueEnum::IntValue(resolve_int_value(expr, context, module, builder, function, params)),
+        Number(_) => BasicValueEnum::IntValue(resolve_int_value(expr, context, module, builder, function, params, variables.clone())),
         Var(name) => {
             if let Some(idx) = params.get(&name) {
                 function.unwrap().get_nth_param(*idx).unwrap()
             } else {
-                todo!()
+                let (var_type, var_ptr) = variables.get(&name).unwrap();
+                builder.build_load(*var_type, *var_ptr, "loaded_value").unwrap()
             }
         },
         FunctionCall(name, args) => {
-            let args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, module, builder, function.clone(), params.clone()))).collect::<Vec<_>>();
+            let args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
             let function = module.get_function(&name).unwrap();
             
             builder.build_call(function, &args[..], &name).unwrap().try_as_basic_value().unwrap_left()
         },
         Add(_, _) => BasicValueEnum::IntValue(
-            resolve_int_value(expr, context, module, builder, function, params)
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
         Sub(_, _) => BasicValueEnum::IntValue(
-            resolve_int_value(expr, context, module, builder, function, params)
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
         Mul(_, _) => BasicValueEnum::IntValue(
-            resolve_int_value(expr, context, module, builder, function, params)
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
         Div(_, _) => BasicValueEnum::IntValue(
-            resolve_int_value(expr, context, module, builder, function, params)
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
         Eq(_, _) => BasicValueEnum::IntValue(
-            resolve_int_value(expr, context, module, builder, function, params)
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
         NEq(_, _) => BasicValueEnum::IntValue(
-            resolve_int_value(expr, context, module, builder, function, params)
+            resolve_int_value(expr, context, module, builder, function, params, variables.clone())
         ),
         _ => todo!()
     }
@@ -147,40 +165,41 @@ fn resolve_int_value<'ctx>(
     module: &Module<'ctx>,
     builder: &Builder<'ctx>,
     function: Option<FunctionValue<'ctx>>,
-    params: HashMap<String, u32>
+    params: HashMap<String, u32>,
+    variables: HashMap<String, (BasicTypeEnum<'ctx>, PointerValue<'ctx>)>
 ) -> IntValue<'ctx> {
     match *expr.node {
         Number(number) => context.i8_type().const_int(number as u64, false),
         Add(x, y) => builder.build_int_add::<IntValue>(
-            resolve_int_value(x, context, module, builder, function, params.clone()),
-            resolve_int_value(y, context, module, builder, function, params),
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "added_value"
         ).unwrap(),
         Sub(x, y) => builder.build_int_sub::<IntValue>(
-            resolve_int_value(x, context, module, builder, function, params.clone()),
-            resolve_int_value(y, context, module, builder, function, params),
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "subbed_value"
         ).unwrap(),
         Mul(x, y) => builder.build_int_mul::<IntValue>(
-            resolve_int_value(x, context, module, builder, function, params.clone()),
-            resolve_int_value(y, context, module, builder, function, params),
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "multiplied_value"
         ).unwrap(),
         Div(x, y) => builder.build_int_unsigned_div::<IntValue>(
-            resolve_int_value(x, context, module, builder, function, params.clone()),
-            resolve_int_value(y, context, module, builder, function, params),
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "divided_value"
         ).unwrap(),
         Eq(x, y) => builder.build_int_compare::<IntValue>(
                 IntPredicate::EQ,
-            resolve_int_value(x, context, module, builder, function, params.clone()),
-            resolve_int_value(y, context, module, builder, function, params),
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "equaled_value"
         ).unwrap(),
         NEq(x, y) => builder.build_int_compare::<IntValue>(
                 IntPredicate::NE,
-            resolve_int_value(x, context, module, builder, function, params.clone()),
-            resolve_int_value(y, context, module, builder, function, params),
+            resolve_int_value(x, context, module, builder, function, params.clone(), variables.clone()),
+            resolve_int_value(y, context, module, builder, function, params, variables.clone()),
             "not_equaled_value"
         ).unwrap(),
         Var(name) => {
@@ -194,7 +213,7 @@ fn resolve_int_value<'ctx>(
             }
         },
         FunctionCall(name, args) => {
-            let args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, module, builder, function.clone(), params.clone()))).collect::<Vec<_>>();
+            let args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
             let function = module.get_function(&name).unwrap();
             
             match builder.build_call(function, &args[..], &name).unwrap().try_as_basic_value().unwrap_left() {
@@ -203,6 +222,14 @@ fn resolve_int_value<'ctx>(
             }
         },
         _ => todo!(),
+    }
+}
+
+fn get_type_single<'ctx>(expr: Expr, context: &'ctx Context) -> BasicTypeEnum<'ctx> {
+    match *expr.node {
+        Byte => BasicTypeEnum::IntType(context.i8_type()),
+        EmptyTuple => todo!(),
+        _ => unreachable!(),
     }
 }
 

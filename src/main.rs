@@ -17,7 +17,9 @@ cool :: x:u8 -> u8 = {
 };
 
 main :: u8 = {
-    return [cool](2);
+    let x: u8 = 10;
+    x = 30;
+    return [cool](x);
 };
 "#;
     let lexer = Lexer::new(&s).inspect(|tok| println!("tok: {:?}", tok));

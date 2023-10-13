@@ -16,6 +16,10 @@ else:                                             ; preds = %entry
 
 define i8 @main() {
 entry:
-  %cool = call i8 @cool(i8 2)
+  %x = alloca i8, align 1
+  store i8 10, ptr %x, align 1
+  store i8 30, ptr %x, align 1
+  %loaded_value = load i8, ptr %x, align 1
+  %cool = call i8 @cool(i8 %loaded_value)
   ret i8 %cool
 }

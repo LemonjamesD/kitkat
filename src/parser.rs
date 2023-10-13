@@ -84,9 +84,21 @@ parser! {
     }
 
     assign: Expr {
+        Let Ident(name) Colon _type[var_type] Equal term[value] Semi => Expr {
+            span: span!(),
+            node: Box::new(Expr_::VarAssign {
+                name,
+                var_type,
+                value
+            })
+        },
         Return term[a] Semi => Expr {
             span: span!(),
             node: Box::new(Expr_::Return(a)),
+        },
+        Ident(name) Equal term[a] Semi => Expr {
+            span: span!(),
+            node: Box::new(Expr_::VarReassign(name, a)),
         },
         #[overriding]
         term[a] => a,
