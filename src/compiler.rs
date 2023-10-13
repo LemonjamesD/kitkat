@@ -74,6 +74,18 @@ impl CodeGen {
                         _ => todo!()
                     }, context, module, &builder, Some(function), hash);
                 },
+                If(cond, block) => {
+                    let then_block = context.append_basic_block(function.unwrap(), "then");
+                    let else_block = context.append_basic_block(function.unwrap(), "else");
+                    builder.build_conditional_branch(
+                        resolve_int_value(cond, context, &module, builder, function, params.clone()),
+                        then_block,
+                        else_block,
+                    ).unwrap();
+
+                    module = self._compile(block, context, module, builder, function, params.clone());
+                    builder.position_at_end(else_block);
+                }
                 Return(expr) => {
                     builder.build_return(Some(&resolve_value(expr, context, &module, builder, function, params.clone()))).unwrap();
                 }
@@ -119,6 +131,12 @@ fn resolve_value<'ctx>(
         Div(_, _) => BasicValueEnum::IntValue(
             resolve_int_value(expr, context, module, builder, function, params)
         ),
+        Eq(_, _) => BasicValueEnum::IntValue(
+            resolve_int_value(expr, context, module, builder, function, params)
+        ),
+        NEq(_, _) => BasicValueEnum::IntValue(
+            resolve_int_value(expr, context, module, builder, function, params)
+        ),
         _ => todo!()
     }
 }
@@ -152,6 +170,18 @@ fn resolve_int_value<'ctx>(
             resolve_int_value(x, context, module, builder, function, params.clone()),
             resolve_int_value(y, context, module, builder, function, params),
             "divided_value"
+        ).unwrap(),
+        Eq(x, y) => builder.build_int_compare::<IntValue>(
+                IntPredicate::EQ,
+            resolve_int_value(x, context, module, builder, function, params.clone()),
+            resolve_int_value(y, context, module, builder, function, params),
+            "equaled_value"
+        ).unwrap(),
+        NEq(x, y) => builder.build_int_compare::<IntValue>(
+                IntPredicate::NE,
+            resolve_int_value(x, context, module, builder, function, params.clone()),
+            resolve_int_value(y, context, module, builder, function, params),
+            "not_equaled_value"
         ).unwrap(),
         Var(name) => {
             if let Some(idx) = params.get(&name) {

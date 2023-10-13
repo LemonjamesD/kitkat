@@ -93,6 +93,14 @@ parser! {
     }
 
     term: Expr {
+        term[lhs] Equality fact[rhs] => Expr {
+            span: span!(),
+            node: Box::new(Expr_::Eq(lhs, rhs))
+        },
+        term[lhs] NotEquality fact[rhs] => Expr {
+            span: span!(),
+            node: Box::new(Expr_::NEq(lhs, rhs))
+        },
         term[lhs] Plus fact[rhs] => Expr {
             span: span!(),
             node: Box::new(Expr_::Add(lhs, rhs))
@@ -131,6 +139,15 @@ parser! {
         LBracket Ident(i) RBracket LParen function_call[a] RParen => Expr {
             span: span!(),
             node: Box::new(Expr_::FunctionCall(i, a))
+        },
+        If LParen term[a] RParen body[body] => Expr {
+            span: span!(),
+            node: Box::new(Expr_::If(a, body))
+        },
+        #[overriding]
+        If LParen term[a] RParen body[body1] Else body[body2] =>  Expr {
+            span: span!(),
+            node: Box::new(Expr_::IfElse(a, body1, body2))
         },
         #[overriding]
         LParen term[a] RParen => a

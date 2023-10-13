@@ -8,6 +8,10 @@ pub enum Token {
     String(String),
     Ident(String),
 
+    // Control flow
+    If,
+    Else,
+
     // Keywords
     Public,
     Eager,
@@ -81,6 +85,10 @@ lexer! {
     // Literals
     "[0-9]+" => Token::Integer(tok.parse().unwrap()),
     r#""[^"]*""# => Token::String(tok[1..tok.len() - 1].to_owned()),
+
+    // Control Flow
+    r"if" => Token::If,
+    r"else" => Token::Else,
 
     // Keywords
     r"pub" => Token::Public,

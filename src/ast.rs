@@ -38,6 +38,18 @@ pub enum Expr_ {
     Var(String),
     Number(i32),
 
+    If(Expr, Vec<Expr>),
+    IfElse(Expr, Vec<Expr>, Vec<Expr>),
+
+    Eq(Expr, Expr),
+    NEq(Expr, Expr),
+    Gt(Expr, Expr),
+    Geq(Expr, Expr),
+    Lt(Expr, Expr),
+    Leq(Expr, Expr),
+    Or(Expr, Expr),
+    And(Expr, Expr),
+    
     Add(Expr, Expr),
     Sub(Expr, Expr),
     Mul(Expr, Expr),
