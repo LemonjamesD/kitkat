@@ -76,6 +76,19 @@ impl CodeGen {
                         _ => todo!()
                     }, context, module, &builder, Some(function), hash, &mut vars);
                 },
+                BlankFunction {
+                    attrs,
+                    name,
+                    type_signature
+                } => {
+                    let (types, return_type) = get_type(type_signature, context);
+                    let fn_type = match return_type {
+                        AnyTypeEnum::IntType(int) => int.fn_type(&types[0..types.len()].iter().map(|x| (x.1).into()).collect::<Vec<_>>(), false),
+                        AnyTypeEnum::VoidType(void) => void.fn_type(&types[0..types.len()].iter().map(|x| (x.1).into()).collect::<Vec<_>>(), false),
+                        _ => todo!(),
+                    };
+                    let function = module.add_function(&name, fn_type, None);
+                },
                 If(cond, block) => {
                     let then_block = context.append_basic_block(function.unwrap(), "then");
                     let else_block = context.append_basic_block(function.unwrap(), "else");
@@ -89,20 +102,17 @@ impl CodeGen {
                     builder.position_at_end(else_block);
                 },
                 For { init, cond, end, body } => {
-                    let init_block = context.append_basic_block(function.unwrap(), "init_for");
-                    let end_block = context.append_basic_block(function.unwrap(), "end_for");
+                    let body_block = context.append_basic_block(function.unwrap(), "body_for");
                     let escape_block = context.append_basic_block(function.unwrap(), "escape_for");
 
-                    builder.build_unconditional_branch(init_block);
-                    builder.position_at_end(init_block);
                     module = self._compile(vec![init], context, module, builder, function, params.clone(), variables);
-                    builder.build_unconditional_branch(end_block);
-                    builder.position_at_end(end_block);
+                    builder.build_unconditional_branch(body_block);
+                    builder.position_at_end(body_block);
                     module = self._compile(body, context, module, builder, function, params.clone(), variables);
                     module = self._compile(vec![end], context, module, builder, function, params.clone(), variables);
                     builder.build_conditional_branch(
                         resolve_int_value(cond, context, &module, builder, function, params.clone(), variables.clone()),
-                        end_block,
+                        body_block,
                         escape_block
                     );
                     builder.position_at_end(escape_block);
@@ -122,7 +132,13 @@ impl CodeGen {
 
                     let value = resolve_value(value, context, &module, builder, function, params.clone(), variables.clone());
                     builder.build_store(*ptr, value);
-                }
+                },
+                FunctionCall(name, args) => {
+                    let args = args.into_iter().map(|x| BasicMetadataValueEnum::from(resolve_value(x, context, &module, builder, function.clone(), params.clone(), variables.clone()))).collect::<Vec<_>>();
+                    let function = module.get_function(&name).unwrap();
+            
+                    builder.build_call(function, &args[..], &name).unwrap();
+                },
                 Return(expr) => {
                     builder.build_return(Some(&resolve_value(expr, context, &module, builder, function, params.clone(), variables.clone()))).unwrap();
                 }

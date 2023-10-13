@@ -37,7 +37,15 @@ parser! {
                     node: Box::new(Expr_::Block(block)),
                 }
             })
-        }
+        },
+        Extern function_attrs[attrs] Ident(name) DoubleColon type_sig[sig] Semi => Expr {
+            span: span!(),
+            node: Box::new(Expr_::BlankFunction {
+                attrs,
+                name,
+                type_signature: sig
+            })
+        },
     }
 
     type_sig: Vec<(Option<std::string::String>, Expr)> {
@@ -99,6 +107,10 @@ parser! {
         Ident(name) Equal term[a] Semi => Expr {
             span: span!(),
             node: Box::new(Expr_::VarReassign(name, a)),
+        },
+        LBracket Ident(i) RBracket LParen function_call[a] RParen Semi => Expr {
+            span: span!(),
+            node: Box::new(Expr_::FunctionCall(i, a))
         },
         #[overriding]
         term[a] => a,

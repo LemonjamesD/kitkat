@@ -19,6 +19,11 @@ pub enum Expr_ {
         type_signature: Vec<(Option<String>, Expr)>,
         body: Expr,
     },
+    BlankFunction {
+        attrs: Vec<Expr>,
+        name: String,
+        type_signature: Vec<(Option<String>, Expr)>
+    },
 
     // Attributes
     Public,
